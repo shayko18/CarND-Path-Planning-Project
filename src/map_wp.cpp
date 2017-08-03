@@ -14,15 +14,12 @@ map_wp::map_wp(){
 
 	ifstream in_map_(map_file_.c_str(), ifstream::in);
 	string line;
-
-	int i=0;
+	
+	int i=0, N_pad=10;
+	double x, y, s, d_x, d_y;
+	vector<double> x_pad(N_pad), y_pad(N_pad), s_pad(N_pad), dx_pad(N_pad), dy_pad(N_pad);
 	while (getline(in_map_, line)) {
 		istringstream iss(line);
-		double x;
-		double y;
-		float s;
-		float d_x;
-		float d_y;
 		iss >> x;
 		iss >> y;
 		iss >> s;
@@ -33,19 +30,35 @@ map_wp::map_wp(){
 		map_waypoints_s.push_back(s);
 		map_waypoints_dx.push_back(d_x);
 		map_waypoints_dy.push_back(d_y);
+		
+		if (i<N_pad){
+			x_pad[i]=x;
+			y_pad[i]=y;
+			s_pad[i]=(s+MAX_S);
+			dx_pad[i]=d_x;
+			dy_pad[i]=d_y;
+		}
 		i++;
 	}
-	cout << "highway_map length = " << i << endl;
+	cout << "Original highway_map length = " << i;
+	cout << ". After padding = " << (N_pad+i) << endl;
 
-	max_s = 6945.554;
+	for (int i=0; i<N_pad; i++){
+		map_waypoints_x.push_back(x_pad[i]);
+		map_waypoints_y.push_back(y_pad[i]);
+		map_waypoints_s.push_back(s_pad[i]);
+		map_waypoints_dx.push_back(dx_pad[i]);
+		map_waypoints_dy.push_back(dy_pad[i]);
+	}
+	
 	calc_splines();
 
-	string dbg_file_ = "/home/dbg_next_path_xy.csv";
-	dbg_path_xy.open(dbg_file_.c_str());
+	//string dbg_file_ = "/home/dbg_next_path_xy.csv";
+	//dbg_path_xy.open(dbg_file_.c_str());
 }
 
 map_wp::~map_wp(){
-	dbg_path_xy.close();
+	//dbg_path_xy.close();
 }
 
 void map_wp::calc_splines(){
@@ -56,16 +69,17 @@ void map_wp::calc_splines(){
 }
 
 vector<double> map_wp::getXY_spline(double s, double d){
- 	s = fmod(s,max_s);
-	
+	s = fmod(s,MAX_S);
+
 	double x = spline_x(s) + d * spline_dx(s);
 	double y = spline_y(s) + d * spline_dy(s);
+	
 	return {x,y};
 }
 
 void map_wp::print_path(vector<double>next_x_vals, vector<double>next_y_vals){
 	for (int i=0; i<next_x_vals.size(); i++){
-		//cout << next_x_vals[i] << " , " << next_y_vals[i] << endl;
-		dbg_path_xy << next_x_vals[i] << "," << next_y_vals[i] << endl;
+		cout << next_x_vals[i] << " , " << next_y_vals[i] << endl;
+		//dbg_path_xy << next_x_vals[i] << "," << next_y_vals[i] << endl;
 	}
 }

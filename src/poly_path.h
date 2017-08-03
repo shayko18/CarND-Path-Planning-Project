@@ -26,9 +26,9 @@ private:
 	
 	
 	eLane get_lane(double d){return (d<=12.0 && d>=0.0)?(eLane)(int)(d/4):eNan;}
-	double get_lane_mid_d(eLane l){return (double)(2+4*l);}
+	double get_next_lane_d(eLane target_lane, double d_start, bool lane_change);
+	double print_fmt(double x);
 	
 	std::vector<double> path_s;
 	std::vector<double> path_d;
-	std::ofstream dbg_car_state;
 };

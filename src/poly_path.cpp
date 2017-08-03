@@ -12,12 +12,11 @@ using Eigen::MatrixXd;
 using Eigen::VectorXd;
 
 poly_path::poly_path(){
-	string dbg_file_ = "/home/dbg_car_state.txt";
-	dbg_car_state.open(dbg_file_.c_str());
+
 }
 
 poly_path::~poly_path(){
-	dbg_car_state.close();
+
 }
 
 void poly_path::calc_path_sd(std::vector<double> vehicle_info, std::vector<object_info> objects_info, int N){
@@ -70,23 +69,26 @@ void poly_path::calc_path_sd(std::vector<double> vehicle_info, std::vector<objec
 		s_dot_end-=0.5*ds_dot;
 	}
 	
-	double ds = s_dot_end*DT;	
+	double ds = s_dot_end*DT;
+	bool lane_change = (my_next_lane!=my_curr_lane);
+	double d_next = get_next_lane_d(my_next_lane, d_start[0], lane_change);
 	
 	bool log_enable = true;
 	if (log_enable){
-		if (my_next_lane==my_curr_lane) {cout << "STAY";}
+		if (!lane_change) {cout << "STAY";}
 		else {cout << "TURN";}
 		if (follow_car) {cout << " RE";}
 		else {cout << " MY";}
 		
-		cout << ", Ss=" << s_start[0] <<", De=" << get_lane_mid_d(my_next_lane) << ", Ve=" << MS_2_MPH(s_dot_end) << " ; ";
-		cout << "{" << dis_ahead[0] << ", " << MS_2_MPH(vel_ahead[0]) << "}  ";
-		cout << "{" << dis_ahead[1] << ", " << MS_2_MPH(vel_ahead[1]) << "}  ";
-		cout << "{" << dis_ahead[2] << ", " << MS_2_MPH(vel_ahead[2]) << "}  ";
+		cout << ", Ss=" << print_fmt(s_start[0]) << ", Ds=" << print_fmt(d_start[0]);
+		cout << ", De=" << print_fmt(d_next) << ", Ve=" << print_fmt(MS_2_MPH(s_dot_end)) << " ; ";
+		cout << "{" << print_fmt(dis_ahead[0]) << ", " << print_fmt(MS_2_MPH(vel_ahead[0])) << "}  ";
+		cout << "{" << print_fmt(dis_ahead[1]) << ", " << print_fmt(MS_2_MPH(vel_ahead[1])) << "}  ";
+		cout << "{" << print_fmt(dis_ahead[2]) << ", " << print_fmt(MS_2_MPH(vel_ahead[2])) << "}  ";
 		cout << endl;
 	}
 	vector<double> s_end = {s_start[0]+ds*N, s_dot_end, 0.0};
-	vector<double> d_end = {get_lane_mid_d(my_next_lane), 0.0, 0.0};
+	vector<double> d_end = {d_next, 0.0, 0.0};
 		
 	vector<double> s_poly_coeff = jmt(s_start, s_end, N*DT);
 	vector<double> d_poly_coeff = jmt(d_start, d_end, N*DT);
@@ -198,3 +200,20 @@ vector<vector<double>> poly_path::get_dis_val_ahead(double s, vector<object_info
 	return {dis_ahead,vel_ahead};
 }
 
+
+double poly_path::get_next_lane_d(eLane target_lane, double d_start, bool lane_change){
+	double d_end=(double)(2+4*target_lane);
+	double dd = (d_end-d_start);
+	
+	if (target_lane!=eCenter){
+		dd = MIN(dd, 3.3);
+		dd = MAX(dd, -3.3);	
+	}
+	return d_start+dd;
+}
+
+double poly_path::print_fmt(double x){
+	int p=100;
+	int xq = (int)(x*p);
+	return (double)xq/p;
+}

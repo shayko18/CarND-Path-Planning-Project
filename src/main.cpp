@@ -27,7 +27,6 @@ constexpr double pi() { return M_PI; }
 double deg2rad(double x) { return x * pi() / 180; }
 double rad2deg(double x) { return x * 180 / pi(); }
 double mph2mps(double x) { return x * 0.44704; }
-enum eCarInLoop {eInit_loop, eCross_zero};
 
 // Checks if the SocketIO event has JSON data.
 // If there is data the JSON object in string format will be returned,
@@ -173,7 +172,6 @@ static int global_cnt=0;
 static int loop_cnt=0;
 static double prev_car_s=-1.0;
 static double car_s_init=-1.0;
-static eCarInLoop car_in_loop = eInit_loop;
 
 int main() {  
   uWS::Hub h;
@@ -207,7 +205,10 @@ int main() {
           	double car_speed = j[1]["speed"];
 			car_speed = mph2mps(car_speed);
 			
-			
+			if (prev_car_s>car_s){
+				car_s+=MAX_S;
+			}
+
           	// Previous path data given to the Planner
           	auto previous_path_x = j[1]["previous_path_x"];
           	auto previous_path_y = j[1]["previous_path_y"];
@@ -223,7 +224,7 @@ int main() {
 			vector<double> next_x_vals;
 			vector<double> next_y_vals;
 			
-			const int next_path_sz = 175;
+			const int next_path_sz = 200;
 			const int tolerance_sz = my_vehicle_info_pm.size();
 			const int update_rate_sz = (UPDATE_RATE/DT)-(tolerance_sz>>1);
 			const int prev_path_sz = previous_path_x.size();
@@ -236,25 +237,20 @@ int main() {
 
 				vector<object_info> objects_info(sensor_fusion.size());
 				for (int i = 0; i < sensor_fusion.size(); i++) {
-					objects_info[i].set(sensor_fusion[i][0],sensor_fusion[i][5],sensor_fusion[i][6],sensor_fusion[i][3],sensor_fusion[i][4]);
+					objects_info[i].set(sensor_fusion[i][0],sensor_fusion[i][5],sensor_fusion[i][6],sensor_fusion[i][3],sensor_fusion[i][4], car_s);
 				}
 
 				vehicle_info my_vehicle_info = my_vehicle_info_pm[fine_location];
 				if (prev_path_sz==0){
 					my_vehicle_info.set_s(car_s);
 					my_vehicle_info.set_d(car_d);
-					if (car_s_init>=0.0){
-						cout << "---------> Something is wrong" << endl;
-					}
 					car_s_init = car_s;
 				}
 				else{
-					if (car_in_loop==eInit_loop && prev_car_s>car_s){
-						car_in_loop = eCross_zero;
-					}
-					if (car_in_loop==eCross_zero && (car_s>car_s_init || prev_car_s>car_s)){
+					if ((int)((car_s-car_s_init)/MAX_S) == loop_cnt+1){
+						cout << endl;
 						cout << " ^^^^^ FINISH " << ++loop_cnt << " LOOP ^^^^" << endl;
-						car_in_loop = eInit_loop;
+						cout << endl;
 					}
 				}
 
@@ -270,7 +266,6 @@ int main() {
 				for (int i=0; i<next_path_sz; i++){
 					next_xy_val = map_waypoints.getXY_spline(poly_path_alg.get_path_s(i), poly_path_alg.get_path_d(i));
 					if (prev_path_sz){
-					
 						double alpha = 1.0;
 						if (i > marge_path_high) {
 							alpha = 0.0;
@@ -306,9 +301,9 @@ int main() {
 			}
 
 			prev_car_s = car_s;
-			if (0){map_waypoints.print_path(next_x_vals,next_y_vals);}
+			//map_waypoints.print_path(next_x_vals,next_y_vals);
 			//cout << "xx cnt=" << ++global_cnt << " xx" << endl;
-
+			
 	
 			
 			// TODO: define a path made up of (x,y) points that the car will visit sequentially every .02 seconds

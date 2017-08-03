@@ -8,7 +8,7 @@ class object_info{
 public:
 	object_info();
 	
-	void set(int id_, double s_, double d_, double vx_, double vy_);
+	void set(int id_, double s_, double d_, double vx_, double vy_, double car_s);
 	double get_s(){return s;}
 	double get_d(){return d;}
 	double get_vx(){return vx;}

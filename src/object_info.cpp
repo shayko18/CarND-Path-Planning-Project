@@ -15,12 +15,17 @@ object_info::object_info(){
 	vy=0.0;
 }
 
-void object_info::set(int id_, double s_, double d_, double vx_, double vy_){
+void object_info::set(int id_, double s_, double d_, double vx_, double vy_, double car_s){
 	id=id_;
 	s=s_;
 	d=d_;
 	vx=vx_*0.44704;
 	vy=vy_*0.44704;
+	
+	int k = (int)((car_s-s)/(MAX_S*0.5));
+	k = (k+1)>>1;
+	
+	s+=(k*MAX_S);
 	
 	bool log_enable = false;
 	if (log_enable){

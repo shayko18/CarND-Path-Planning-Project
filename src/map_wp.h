@@ -11,9 +11,10 @@ public:
 
 	std::vector<double> getXY_spline(double s, double d);
 	void print_path(std::vector<double>next_x_vals, std::vector<double>next_y_vals);
-	
 
 private:	
+	void calc_splines();
+	
 	std::vector<double> map_waypoints_x;
 	std::vector<double> map_waypoints_y;
 	std::vector<double> map_waypoints_s;
@@ -25,8 +26,5 @@ private:
 	tk::spline spline_dx;
 	tk::spline spline_dy;
 	
-	double	max_s;
-	std::ofstream dbg_path_xy;
-	
-	void calc_splines();
+	//std::ofstream dbg_path_xy;	
 };
