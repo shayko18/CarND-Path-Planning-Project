@@ -9,6 +9,14 @@
 #include "Eigen-3.3/Eigen/QR"
 #include "json.hpp"
 
+#include "defs.h"
+#include "spline.h"
+#include "map_wp.h"
+#include "poly_path.h"
+#include "vehicle_info.h"
+#include "object_info.h"
+
+
 using namespace std;
 
 // for convenience
@@ -18,6 +26,7 @@ using json = nlohmann::json;
 constexpr double pi() { return M_PI; }
 double deg2rad(double x) { return x * pi() / 180; }
 double rad2deg(double x) { return x * 180 / pi(); }
+double mph2mps(double x) { return x * 0.44704; }
 
 // Checks if the SocketIO event has JSON data.
 // If there is data the JSON object in string format will be returned,
@@ -159,44 +168,15 @@ vector<double> getXY(double s, double d, vector<double> maps_s, vector<double> m
 
 }
 
-int main() {
+static int global_cnt=0;
+
+int main() {  
   uWS::Hub h;
+  map_wp map_waypoints;
+  poly_path poly_path_alg;
+  vector<vehicle_info> my_vehicle_info_pm(16);
 
-  // Load up map values for waypoint's x,y,s and d normalized normal vectors
-  vector<double> map_waypoints_x;
-  vector<double> map_waypoints_y;
-  vector<double> map_waypoints_s;
-  vector<double> map_waypoints_dx;
-  vector<double> map_waypoints_dy;
-
-  // Waypoint map to read from
-  string map_file_ = "../data/highway_map.csv";
-  // The max s value before wrapping around the track back to 0
-  double max_s = 6945.554;
-
-  ifstream in_map_(map_file_.c_str(), ifstream::in);
-
-  string line;
-  while (getline(in_map_, line)) {
-  	istringstream iss(line);
-  	double x;
-  	double y;
-  	float s;
-  	float d_x;
-  	float d_y;
-  	iss >> x;
-  	iss >> y;
-  	iss >> s;
-  	iss >> d_x;
-  	iss >> d_y;
-  	map_waypoints_x.push_back(x);
-  	map_waypoints_y.push_back(y);
-  	map_waypoints_s.push_back(s);
-  	map_waypoints_dx.push_back(d_x);
-  	map_waypoints_dy.push_back(d_y);
-  }
-
-  h.onMessage([&map_waypoints_x,&map_waypoints_y,&map_waypoints_s,&map_waypoints_dx,&map_waypoints_dy](uWS::WebSocket<uWS::SERVER> ws, char *data, size_t length,
+  h.onMessage([&map_waypoints, &my_vehicle_info_pm, &poly_path_alg](uWS::WebSocket<uWS::SERVER> ws, char *data, size_t length,
                      uWS::OpCode opCode) {
     // "42" at the start of the message means there's a websocket message event.
     // The 4 signifies a websocket message
@@ -204,45 +184,120 @@ int main() {
     //auto sdata = string(data).substr(0, length);
     //cout << sdata << endl;
     if (length && length > 2 && data[0] == '4' && data[1] == '2') {
-
       auto s = hasData(data);
 
       if (s != "") {
         auto j = json::parse(s);
-        
         string event = j[0].get<string>();
+		
         
         if (event == "telemetry") {
           // j[1] is the data JSON object
-          
-        	// Main car's localization Data
+			global_cnt++;
+		  // Main car's localization Data
           	double car_x = j[1]["x"];
           	double car_y = j[1]["y"];
           	double car_s = j[1]["s"];
           	double car_d = j[1]["d"];
           	double car_yaw = j[1]["yaw"];
           	double car_speed = j[1]["speed"];
-
+			car_speed = mph2mps(car_speed);
+			
+			
           	// Previous path data given to the Planner
           	auto previous_path_x = j[1]["previous_path_x"];
           	auto previous_path_y = j[1]["previous_path_y"];
           	// Previous path's end s and d values 
           	double end_path_s = j[1]["end_path_s"];
           	double end_path_d = j[1]["end_path_d"];
-
+			
           	// Sensor Fusion Data, a list of all other cars on the same side of the road.
           	auto sensor_fusion = j[1]["sensor_fusion"];
 
           	json msgJson;
 
-          	vector<double> next_x_vals;
-          	vector<double> next_y_vals;
+			vector<double> next_x_vals;
+			vector<double> next_y_vals;
+			
+			const int next_path_sz = 175;
+			const int tolerance_sz = my_vehicle_info_pm.size();
+			const int update_rate_sz = (UPDATE_RATE/DT)-(tolerance_sz>>1);
+			const int prev_path_sz = previous_path_x.size();
 
+			if (prev_path_sz < (next_path_sz-update_rate_sz)){
+				int fine_location = MIN(next_path_sz-update_rate_sz-prev_path_sz, tolerance_sz-1);
+				if (prev_path_sz==0){
+					fine_location = 0;
+				}
 
-          	// TODO: define a path made up of (x,y) points that the car will visit sequentially every .02 seconds
-          	msgJson["next_x"] = next_x_vals;
-          	msgJson["next_y"] = next_y_vals;
+				vector<object_info> objects_info(sensor_fusion.size());
+				for (int i = 0; i < sensor_fusion.size(); i++) {
+					objects_info[i].set(sensor_fusion[i][0],sensor_fusion[i][5],sensor_fusion[i][6],sensor_fusion[i][3],sensor_fusion[i][4]);
+				}
 
+				vehicle_info my_vehicle_info = my_vehicle_info_pm[fine_location];
+				if (prev_path_sz==0){
+					my_vehicle_info.set_s(car_s);
+					my_vehicle_info.set_d(car_d);
+				}
+
+				poly_path_alg.calc_path_sd(my_vehicle_info.get_vec(), objects_info, next_path_sz);
+				for (int i=0; i<tolerance_sz; i++){
+					my_vehicle_info_pm[i].set_vec(poly_path_alg.est_vehicle_info(i+update_rate_sz)); 
+				}
+				
+				const int marge_path_low = 15;
+				const int marge_path_high = marge_path_low+10;
+				vector<double> next_xy_val;
+				double next_x, next_y;
+				for (int i=0; i<next_path_sz; i++){
+					next_xy_val = map_waypoints.getXY_spline(poly_path_alg.get_path_s(i), poly_path_alg.get_path_d(i));//, spline_data);
+					if (prev_path_sz){
+					
+						double alpha = 1.0;
+						if (i > marge_path_high) {
+							alpha = 0.0;
+						}
+						else if (i>marge_path_low){
+							alpha = ((double)(marge_path_high-i)) / (double)(marge_path_high-marge_path_low);
+						}
+						
+						if (i>=prev_path_sz){
+							next_x = next_xy_val[0];
+							next_y = next_xy_val[1];	
+						}
+						else{
+							next_x = alpha*(double)previous_path_x[i] + (1.0-alpha)*next_xy_val[0];
+							next_y = alpha*(double)previous_path_y[i] + (1.0-alpha)*next_xy_val[1];						
+						}
+
+					
+						next_x_vals.push_back(next_x);
+						next_y_vals.push_back(next_y);
+					}
+					else{
+						next_x_vals.push_back(next_xy_val[0]);
+						next_y_vals.push_back(next_xy_val[1]);
+					}				
+				}
+			}
+			else{
+				for(int i=0; i<prev_path_sz; i++) {
+					next_x_vals.push_back(previous_path_x[i]);
+					next_y_vals.push_back(previous_path_y[i]);
+				}
+			}
+
+			
+			if (0){map_waypoints.print_path(next_x_vals,next_y_vals);}
+			cout << "xx cnt=" << global_cnt << " xx" << endl;
+
+	
+			
+			// TODO: define a path made up of (x,y) points that the car will visit sequentially every .02 seconds
+			msgJson["next_x"] = next_x_vals;
+			msgJson["next_y"] = next_y_vals;
+			
           	auto msg = "42[\"control\","+ msgJson.dump()+"]";
 
           	//this_thread::sleep_for(chrono::milliseconds(1000));
