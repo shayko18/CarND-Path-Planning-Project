@@ -27,6 +27,7 @@ constexpr double pi() { return M_PI; }
 double deg2rad(double x) { return x * pi() / 180; }
 double rad2deg(double x) { return x * 180 / pi(); }
 double mph2mps(double x) { return x * 0.44704; }
+enum eCarInLoop {eInit_loop, eCross_zero};
 
 // Checks if the SocketIO event has JSON data.
 // If there is data the JSON object in string format will be returned,
@@ -169,6 +170,10 @@ vector<double> getXY(double s, double d, vector<double> maps_s, vector<double> m
 }
 
 static int global_cnt=0;
+static int loop_cnt=0;
+static double prev_car_s=-1.0;
+static double car_s_init=-1.0;
+static eCarInLoop car_in_loop = eInit_loop;
 
 int main() {  
   uWS::Hub h;
@@ -193,7 +198,6 @@ int main() {
         
         if (event == "telemetry") {
           // j[1] is the data JSON object
-			global_cnt++;
 		  // Main car's localization Data
           	double car_x = j[1]["x"];
           	double car_y = j[1]["y"];
@@ -239,6 +243,19 @@ int main() {
 				if (prev_path_sz==0){
 					my_vehicle_info.set_s(car_s);
 					my_vehicle_info.set_d(car_d);
+					if (car_s_init>=0.0){
+						cout << "---------> Something is wrong" << endl;
+					}
+					car_s_init = car_s;
+				}
+				else{
+					if (car_in_loop==eInit_loop && prev_car_s>car_s){
+						car_in_loop = eCross_zero;
+					}
+					if (car_in_loop==eCross_zero && (car_s>car_s_init || prev_car_s>car_s)){
+						cout << " ^^^^^ FINISH " << ++loop_cnt << " LOOP ^^^^" << endl;
+						car_in_loop = eInit_loop;
+					}
 				}
 
 				poly_path_alg.calc_path_sd(my_vehicle_info.get_vec(), objects_info, next_path_sz);
@@ -251,7 +268,7 @@ int main() {
 				vector<double> next_xy_val;
 				double next_x, next_y;
 				for (int i=0; i<next_path_sz; i++){
-					next_xy_val = map_waypoints.getXY_spline(poly_path_alg.get_path_s(i), poly_path_alg.get_path_d(i));//, spline_data);
+					next_xy_val = map_waypoints.getXY_spline(poly_path_alg.get_path_s(i), poly_path_alg.get_path_d(i));
 					if (prev_path_sz){
 					
 						double alpha = 1.0;
@@ -288,9 +305,9 @@ int main() {
 				}
 			}
 
-			
+			prev_car_s = car_s;
 			if (0){map_waypoints.print_path(next_x_vals,next_y_vals);}
-			cout << "xx cnt=" << global_cnt << " xx" << endl;
+			//cout << "xx cnt=" << ++global_cnt << " xx" << endl;
 
 	
 			
@@ -345,83 +362,3 @@ int main() {
   }
   h.run();
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

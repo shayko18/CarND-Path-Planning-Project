@@ -10,6 +10,8 @@ class poly_path{
 public:
 	enum eLane {eLeft, eCenter, eRight, eNan};
 	poly_path();
+	~poly_path();
+		
 	void calc_path_sd(std::vector<double> vehicle_info, std::vector<class object_info> objects_info, int N); 
 	std::vector<double> est_vehicle_info(int n);
 	
@@ -28,4 +30,5 @@ private:
 	
 	std::vector<double> path_s;
 	std::vector<double> path_d;
+	std::ofstream dbg_car_state;
 };

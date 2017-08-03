@@ -12,9 +12,13 @@ using Eigen::MatrixXd;
 using Eigen::VectorXd;
 
 poly_path::poly_path(){
-
+	string dbg_file_ = "/home/dbg_car_state.txt";
+	dbg_car_state.open(dbg_file_.c_str());
 }
 
+poly_path::~poly_path(){
+	dbg_car_state.close();
+}
 
 void poly_path::calc_path_sd(std::vector<double> vehicle_info, std::vector<object_info> objects_info, int N){
 
@@ -46,6 +50,9 @@ void poly_path::calc_path_sd(std::vector<double> vehicle_info, std::vector<objec
 			}
 		}
 	}
+	else if (line_change_enable && my_curr_lane!=eCenter && (dis_ahead[eCenter] > 2*MIN_SAFE_DIS)){
+		my_next_lane = eCenter;
+	}
 	
 	bool follow_car = false;
 	double s_dot_end = MAX_SPEED_MPS;
@@ -72,10 +79,10 @@ void poly_path::calc_path_sd(std::vector<double> vehicle_info, std::vector<objec
 		if (follow_car) {cout << " RE";}
 		else {cout << " MY";}
 		
-		cout << ", L=" << my_next_lane << ", V=" << s_dot_end << " ; ";
-		cout << "{" << dis_ahead[0] << ", " << vel_ahead[0] << "}  ";
-		cout << "{" << dis_ahead[1] << ", " << vel_ahead[1] << "}  ";
-		cout << "{" << dis_ahead[2] << ", " << vel_ahead[2] << "}  ";
+		cout << ", Ss=" << s_start[0] <<", De=" << get_lane_mid_d(my_next_lane) << ", Ve=" << MS_2_MPH(s_dot_end) << " ; ";
+		cout << "{" << dis_ahead[0] << ", " << MS_2_MPH(vel_ahead[0]) << "}  ";
+		cout << "{" << dis_ahead[1] << ", " << MS_2_MPH(vel_ahead[1]) << "}  ";
+		cout << "{" << dis_ahead[2] << ", " << MS_2_MPH(vel_ahead[2]) << "}  ";
 		cout << endl;
 	}
 	vector<double> s_end = {s_start[0]+ds*N, s_dot_end, 0.0};
@@ -167,6 +174,7 @@ vector<double> poly_path::est_vehicle_info(int n){
 	
 	return {s0, s_dot, s_dot_dot, d0, d_dot, d_dot_dot};
 }
+
 
 vector<vector<double>> poly_path::get_dis_val_ahead(double s, vector<object_info> objects_info){
 	vector<double> dis_ahead = {1234.0, 1234.0, 1234.0};

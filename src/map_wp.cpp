@@ -41,7 +41,6 @@ map_wp::map_wp(){
 	calc_splines();
 
 	string dbg_file_ = "/home/dbg_next_path_xy.csv";
-	//string dbg_file_ = "/host/dbg_next_path_xy.csv";
 	dbg_path_xy.open(dbg_file_.c_str());
 }
 
