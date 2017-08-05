@@ -43,6 +43,7 @@ string hasData(string s) {
   return "";
 }
 
+/*
 double distance(double x1, double y1, double x2, double y2)
 {
 	return sqrt((x2-x1)*(x2-x1)+(y2-y1)*(y2-y1));
@@ -168,16 +169,22 @@ vector<double> getXY(double s, double d, vector<double> maps_s, vector<double> m
 
 }
 
-static int global_cnt=0;
-static int loop_cnt=0;
-static double prev_car_s=-1.0;
-static double car_s_init=-1.0;
+*/
+
+
+// 
+// Globals 
+static int global_cnt=0;       // counter for sim calls
+static int loop_cnt=0;         // counter for number of loops
+static double prev_car_s=-1.0; // car_s in the last call
+static double car_s_init=-1.0; // car_s init position
 
 int main() {  
   uWS::Hub h;
-  map_wp map_waypoints;
-  poly_path poly_path_alg;
-  vector<vehicle_info> my_vehicle_info_pm(16);
+  
+  map_wp map_waypoints;       // the map of the track (holds the spline)
+  poly_path poly_path_alg;    // will calc the next path
+  vector<vehicle_info> my_vehicle_info_pm(16); // my vehicle info with some tolerance
 
   h.onMessage([&map_waypoints, &my_vehicle_info_pm, &poly_path_alg](uWS::WebSocket<uWS::SERVER> ws, char *data, size_t length,
                      uWS::OpCode opCode) {
@@ -224,41 +231,53 @@ int main() {
 			vector<double> next_x_vals;
 			vector<double> next_y_vals;
 			
-			const int next_path_sz = 200;
-			const int tolerance_sz = my_vehicle_info_pm.size();
-			const int update_rate_sz = (UPDATE_RATE/DT)-(tolerance_sz>>1);
-			const int prev_path_sz = previous_path_x.size();
 
-			if (prev_path_sz < (next_path_sz-update_rate_sz)){
-				int fine_location = MIN(next_path_sz-update_rate_sz-prev_path_sz, tolerance_sz-1);
+			const int next_path_sz = 200;                                    // length of the next path we calc
+			const int tolerance_sz = my_vehicle_info_pm.size();              // tolerance size
+			const int update_rate_sz = (UPDATE_RATE/DT)-(tolerance_sz>>1);   // update rate
+			const int prev_path_sz = previous_path_x.size();        
+
+			if (prev_path_sz < (next_path_sz-update_rate_sz)){               // this is the condition we will update the path
+				int fine_location = MIN(next_path_sz-update_rate_sz-prev_path_sz, tolerance_sz-1); // where we are. tolerance where we are.
 				if (prev_path_sz==0){
 					fine_location = 0;
 				}
 
+				//
+				// get the other cars info
 				vector<object_info> objects_info(sensor_fusion.size());
 				for (int i = 0; i < sensor_fusion.size(); i++) {
 					objects_info[i].set(sensor_fusion[i][0],sensor_fusion[i][5],sensor_fusion[i][6],sensor_fusion[i][3],sensor_fusion[i][4], car_s);
 				}
 
+				//
+				// get my car info at current location
 				vehicle_info my_vehicle_info = my_vehicle_info_pm[fine_location];
 				if (prev_path_sz==0){
 					my_vehicle_info.set_s(car_s);
 					my_vehicle_info.set_d(car_d);
 					car_s_init = car_s;
 				}
-				else{
+				else{ // count number of loops
 					if ((int)((car_s-car_s_init)/MAX_S) == loop_cnt+1){
 						cout << endl;
-						cout << " ^^^^^ FINISH " << ++loop_cnt << " LOOP ^^^^" << endl;
+						cout << " ^^^^^ FINISH " << ++loop_cnt << " LOOP ^^^^^" << endl;
 						cout << endl;
 					}
 				}
 
+				//
+				// calc the "next" path
 				poly_path_alg.calc_path_sd(my_vehicle_info.get_vec(), objects_info, next_path_sz);
+				
+				//
+				// set the predicted car info for the next update 
 				for (int i=0; i<tolerance_sz; i++){
 					my_vehicle_info_pm[i].set_vec(poly_path_alg.est_vehicle_info(i+update_rate_sz)); 
 				}
 				
+				//
+				// merge the prev path with the "next" path
 				const int marge_path_low = 15;
 				const int marge_path_high = marge_path_low+10;
 				vector<double> next_xy_val;
@@ -293,7 +312,7 @@ int main() {
 					}				
 				}
 			}
-			else{
+			else{ // we didn't update on this cycle
 				for(int i=0; i<prev_path_sz; i++) {
 					next_x_vals.push_back(previous_path_x[i]);
 					next_y_vals.push_back(previous_path_y[i]);

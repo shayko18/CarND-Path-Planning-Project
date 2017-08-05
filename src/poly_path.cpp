@@ -19,11 +19,14 @@ poly_path::~poly_path(){
 
 }
 
+//
+// calc the "next" path
 void poly_path::calc_path_sd(std::vector<double> vehicle_info, std::vector<object_info> objects_info, int N){
 
 	path_s.clear();
 	path_d.clear();
 		
+	// init states 
 	vector<double> s_start = {vehicle_info[0], vehicle_info[1], vehicle_info[2]};
 	vector<double> d_start = {vehicle_info[3], vehicle_info[4], vehicle_info[5]};
 	
@@ -35,8 +38,10 @@ void poly_path::calc_path_sd(std::vector<double> vehicle_info, std::vector<objec
 	vector<double> dis_ahead = dis_vel_ahead[0];
 	vector<double> vel_ahead = dis_vel_ahead[1];
 	
-	const bool line_change_enable=true;
-	const bool speed_change_enable=true;
+	const bool line_change_enable=true;  // debug
+	const bool speed_change_enable=true; // debug
+	
+	// we check if we need to change lanes
 	if (line_change_enable && dis_ahead[my_curr_lane] < MIN_SAFE_DIS){
 		if (my_curr_lane!=eCenter){
 			if (dis_ahead[eCenter] > MIN_SAFE_DIS){
@@ -49,10 +54,12 @@ void poly_path::calc_path_sd(std::vector<double> vehicle_info, std::vector<objec
 			}
 		}
 	}
-	else if (line_change_enable && my_curr_lane!=eCenter && (dis_ahead[eCenter] > 2*MIN_SAFE_DIS)){
+	else if (line_change_enable && my_curr_lane!=eCenter && (dis_ahead[eCenter] > 2*MIN_SAFE_DIS)){ // we prefer to be on the center lane
 		my_next_lane = eCenter;
 	}
 	
+	//
+	// finding the target speed at the end of the path.
 	bool follow_car = false;
 	double s_dot_end = MAX_SPEED_MPS;
 	if (speed_change_enable && (dis_ahead[my_next_lane] < MIN_SAFE_DIS) && (vel_ahead[my_next_lane] < MAX_SPEED_MPS)){
@@ -72,7 +79,8 @@ void poly_path::calc_path_sd(std::vector<double> vehicle_info, std::vector<objec
 	double ds = s_dot_end*DT;
 	bool lane_change = (my_next_lane!=my_curr_lane);
 	double d_next = get_next_lane_d(my_next_lane, d_start[0], lane_change);
-	
+	 
+	// log prints (debug)
 	bool log_enable = true;
 	if (log_enable){
 		if (!lane_change) {cout << "STAY";}
@@ -87,12 +95,16 @@ void poly_path::calc_path_sd(std::vector<double> vehicle_info, std::vector<objec
 		cout << "{" << print_fmt(dis_ahead[2]) << ", " << print_fmt(MS_2_MPH(vel_ahead[2])) << "}  ";
 		cout << endl;
 	}
+	
+	// target state
 	vector<double> s_end = {s_start[0]+ds*N, s_dot_end, 0.0};
 	vector<double> d_end = {d_next, 0.0, 0.0};
 		
+	// calc the 6th order poly coeffs (s, d)
 	vector<double> s_poly_coeff = jmt(s_start, s_end, N*DT);
 	vector<double> d_poly_coeff = jmt(d_start, d_end, N*DT);
 
+	// calc the new path (s, d)
 	double t=0.0;
 	for (int i=0; i<N; i++){
 		path_s.push_back(poly_val(s_poly_coeff, t));
@@ -101,7 +113,8 @@ void poly_path::calc_path_sd(std::vector<double> vehicle_info, std::vector<objec
 	}
 }
 
-
+//
+// jmt
 vector<double> poly_path::jmt(vector<double> start, vector <double> end, double T){
     /*
     Calculate the Jerk Minimizing Trajectory that connects the initial state
@@ -147,7 +160,8 @@ vector<double> poly_path::jmt(vector<double> start, vector <double> end, double 
     return result;
 }
 
-
+//
+// eval the poly val at the given point
 double poly_path::poly_val(vector<double> coeff, double t){
 	double result = 0.0;
     for (int i = 0; i < coeff.size(); i++) {
@@ -156,7 +170,8 @@ double poly_path::poly_val(vector<double> coeff, double t){
     return result;
 }
 
-
+//
+// setting the car info according to the path
 vector<double> poly_path::est_vehicle_info(int n){
 	int n0 = MAX(n,1);
 	n0 = MIN (n0, path_s.size()-2);
@@ -177,7 +192,8 @@ vector<double> poly_path::est_vehicle_info(int n){
 	return {s0, s_dot, s_dot_dot, d0, d_dot, d_dot_dot};
 }
 
-
+//
+// getting the distance and velocity of the other cars ahead of us
 vector<vector<double>> poly_path::get_dis_val_ahead(double s, vector<object_info> objects_info){
 	vector<double> dis_ahead = {1234.0, 1234.0, 1234.0};
 	vector<double> vel_ahead = {MAX_SPEED_MPS+5.0, MAX_SPEED_MPS+5.0, MAX_SPEED_MPS+5.0};
@@ -200,19 +216,22 @@ vector<vector<double>> poly_path::get_dis_val_ahead(double s, vector<object_info
 	return {dis_ahead,vel_ahead};
 }
 
-
+//
+// calculating the final "d" location we want
 double poly_path::get_next_lane_d(eLane target_lane, double d_start, bool lane_change){
 	double d_end=(double)(2+4*target_lane);
 	double dd = (d_end-d_start);
 	
-	if (target_lane!=eCenter){
+	if (target_lane!=eCenter){ // in order not to exit the road borders - smooth the path.
 		dd = MIN(dd, 3.3);
 		dd = MAX(dd, -3.3);	
 	}
 	return d_start+dd;
 }
 
-double poly_path::print_fmt(double x){
+//
+// for debug prints
+double poly_path::print_fmt(double x){ 
 	int p=100;
 	int xq = (int)(x*p);
 	return (double)xq/p;

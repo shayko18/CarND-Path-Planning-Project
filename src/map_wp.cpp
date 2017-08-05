@@ -7,6 +7,9 @@
 
 using namespace std;
 
+//
+// read the highway_map.csv file and calc the spline from it.
+// we wrap this file in order to maintain continuity on "s" at the end of the track. 
 map_wp::map_wp(){
 
 	string map_file_ = "/home/highway_map.csv";
@@ -61,6 +64,8 @@ map_wp::~map_wp(){
 	//dbg_path_xy.close();
 }
 
+//
+// calc the splines
 void map_wp::calc_splines(){
 	spline_x.set_points(map_waypoints_s, map_waypoints_x);
 	spline_y.set_points(map_waypoints_s, map_waypoints_y);
@@ -68,6 +73,8 @@ void map_wp::calc_splines(){
 	spline_dy.set_points(map_waypoints_s, map_waypoints_dy);
 }
 
+// 
+// get {x,y} location as a function of {s,d}
 vector<double> map_wp::getXY_spline(double s, double d){
 	s = fmod(s,MAX_S);
 
@@ -77,6 +84,8 @@ vector<double> map_wp::getXY_spline(double s, double d){
 	return {x,y};
 }
 
+//
+// debug prints
 void map_wp::print_path(vector<double>next_x_vals, vector<double>next_y_vals){
 	for (int i=0; i<next_x_vals.size(); i++){
 		cout << next_x_vals[i] << " , " << next_y_vals[i] << endl;

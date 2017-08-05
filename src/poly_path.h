@@ -29,6 +29,7 @@ private:
 	double get_next_lane_d(eLane target_lane, double d_start, bool lane_change);
 	double print_fmt(double x);
 	
+	// the "next" paths the this class will calc
 	std::vector<double> path_s;
 	std::vector<double> path_d;
 };

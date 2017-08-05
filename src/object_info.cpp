@@ -15,6 +15,9 @@ object_info::object_info(){
 	vy=0.0;
 }
 
+// 
+// setting the "other car" info. 
+// we wrap the s location in order to maintain continuity at the end of the track. 
 void object_info::set(int id_, double s_, double d_, double vx_, double vy_, double car_s){
 	id=id_;
 	s=s_;
@@ -38,6 +41,8 @@ void object_info::set(int id_, double s_, double d_, double vx_, double vy_, dou
 	}
 }
 
+//
+// getting absolute velocity
 double object_info::get_v(){
 	double v = sqrt(vx*vx + vy*vy);;
 	return v;

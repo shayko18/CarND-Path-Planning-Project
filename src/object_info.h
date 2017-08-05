@@ -16,6 +16,7 @@ public:
 	double get_v();
 		
 private:
+	// other car info
 	int id;
 	double s;
 	double d;

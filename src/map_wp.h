@@ -15,12 +15,14 @@ public:
 private:	
 	void calc_splines();
 	
+	// given points form the highway map file
 	std::vector<double> map_waypoints_x;
 	std::vector<double> map_waypoints_y;
 	std::vector<double> map_waypoints_s;
 	std::vector<double> map_waypoints_dx;
 	std::vector<double> map_waypoints_dy;
 	
+	// spline of the highway map
 	tk::spline spline_x;
 	tk::spline spline_y;
 	tk::spline spline_dx;

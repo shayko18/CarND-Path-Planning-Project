@@ -28,6 +28,7 @@ public:
 	
 	
 private:	
+	// car info (for jmt)
 	double s;
 	double s_dot;
 	double s_dot_dot;
