@@ -3,8 +3,8 @@ Self-Driving Car Engineer Nanodegree Program
  
 [//]: # (Image References)
 
-[image1]: ./finish_line_pic.png "finish_line_pic"
-[image2]: ./finish_line_log.png "finish_line_log"
+[image1]: ./finish_line_snapshot.png "finish_line_snapshot"
+
 
 ### Files in this project
 
@@ -17,10 +17,9 @@ Self-Driving Car Engineer Nanodegree Program
 - spline.h.
 
 
-### Finish Line snapshoot and log
+### Finish Line snapshot and log
 ![alt text][image1]
 
-![alt text][image2]
 
 
 ### Highlevel algorithm
@@ -49,7 +48,7 @@ otherwise:
 		- we have the initial state (lines 30-32 in poly_path.cpp).
 		- we look at the other cars ahead of us or close to us and behind us (MIN_SAFE_DIS_BEHIND). for each lane we find the closest car and calculate the distance from it and the velocity of that car (lines 38-40, 207-227 in poly_path.cpp)
 		- now we have a simple FSM that will set our target location (s,d) and speed (s): (lines 45-70 in poly_path.cpp)
-			- if we are in the middle of the lane change we wait for it to finish, before we change to another lane. This is done because we don't wont to stay in between lanes for too much time (47, 244-248 in poly_path.cpp) . 
+			- if we are in the middle of the lane change we wait for it to finish, before we change to another lane. This is done because we don't wont to stay in between lanes for too much time (47, 249-255 in poly_path.cpp) . 
 			- if the road ahead is clear:
 				- if we are at the center lane we continue and set the target speed toward the maximal speed (the two ifs are false)
 				- if we are not at the center lane and the center lane is open we change to the center lane and set the target speed toward the maximal speed (the first if is false and the second is true). This is done because the center lane is the best place to be: we have two options to change lanes from it.
@@ -60,7 +59,7 @@ otherwise:
 6. we calculate the target location:
 7. 
 		- s: according to "s speed" (lines 80,110 in poly_path.cpp)
-		- d: according to the target lane. Here we don't want to get overshoot and find the car outside to road so we limit the difference in the change (lines 81, 221-230 in poly_path.cpp)
+		- d: according to the target lane. Here we don't want to get overshoot and find the car outside to road so we limit the difference in the change (lines 91, 237-238 in poly_path.cpp). Also in big curves we don't want to get out of bounds so we correct the "target d" to be closer to the middle (lines 91, 239-242 in poly_path.cpp).
 8. the rest of the target values are set to zero (lines 110-111 in poly_path.cpp)
 9. we use the "jmt" function (lines 114-115 in poly_path.cpp), and find the path (lines 118-123 in poly_path.cpp)
 
