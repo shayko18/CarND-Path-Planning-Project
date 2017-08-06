@@ -12,8 +12,8 @@ using namespace std;
 // we wrap this file in order to maintain continuity on "s" at the end of the track. 
 map_wp::map_wp(){
 
-	string map_file_ = "/home/highway_map.csv";
-	//string map_file_ = "../data/highway_map.csv";
+	//string map_file_ = "/home/highway_map.csv";   // my location
+	string map_file_ = "../data/highway_map.csv";   // udacity location
 
 	ifstream in_map_(map_file_.c_str(), ifstream::in);
 	string line;
