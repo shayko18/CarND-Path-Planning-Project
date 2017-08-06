@@ -26,10 +26,16 @@ private:
 	
 	
 	eLane get_lane(double d){return (d<=12.0 && d>=0.0)?(eLane)(int)(d/4):eNan;}
-	double get_next_lane_d(eLane target_lane, double d_start, bool lane_change);
+	bool get_is_in_lane(eLane target_lane, double d);
+	double get_next_lane_d(eLane target_lane, double d_start);
 	double print_fmt(double x);
 	
 	// the "next" paths the this class will calc
 	std::vector<double> path_s;
 	std::vector<double> path_d;
+	
+	// counter when changing lanes
+	int cnt_change_lane;
+	eLane change_lane_trg;
+	
 };

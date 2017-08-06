@@ -12,7 +12,8 @@ using Eigen::MatrixXd;
 using Eigen::VectorXd;
 
 poly_path::poly_path(){
-
+	cnt_change_lane=0;
+	change_lane_trg=eNan;
 }
 
 poly_path::~poly_path(){
@@ -37,32 +38,42 @@ void poly_path::calc_path_sd(std::vector<double> vehicle_info, std::vector<objec
 	vector<vector<double>> dis_vel_ahead = get_dis_val_ahead(s_start[0], objects_info);
 	vector<double> dis_ahead = dis_vel_ahead[0];
 	vector<double> vel_ahead = dis_vel_ahead[1];
+	bool lane_change=false;
 	
-	const bool line_change_enable=true;  // debug
-	const bool speed_change_enable=true; // debug
-	
-	// we check if we need to change lanes
-	if (line_change_enable && dis_ahead[my_curr_lane] < MIN_SAFE_DIS){
-		if (my_curr_lane!=eCenter){
-			if (dis_ahead[eCenter] > MIN_SAFE_DIS){
-				my_next_lane = eCenter;
-			}
-		}
-		else{
-			if (MAX(dis_ahead[eRight], dis_ahead[eLeft])>MIN_SAFE_DIS){
-				my_next_lane = (dis_ahead[eRight]>dis_ahead[eLeft])?eRight:eLeft;
-			}
-		}
+	//
+	// algorithm to select the next lane
+	if (cnt_change_lane){                        // we are in the middle of changing lanes. give it 2 seconds (2 updates)
+		my_next_lane=change_lane_trg;
+		cnt_change_lane = (get_is_in_lane(change_lane_trg, d_start[0]))?0:(cnt_change_lane+1);
 	}
-	else if (line_change_enable && my_curr_lane!=eCenter && (dis_ahead[eCenter] > 2*MIN_SAFE_DIS)){ // we prefer to be on the center lane
-		my_next_lane = eCenter;
+	if (cnt_change_lane==0){                     // we check if we need to change lanes
+		if (dis_ahead[my_curr_lane] < MIN_SAFE_DIS_AHEAD){
+			if (my_curr_lane!=eCenter){
+				if (dis_ahead[eCenter] > MIN_SAFE_DIS_AHEAD){
+					my_next_lane = eCenter;
+				}
+			}
+			else{
+				if (MAX(dis_ahead[eRight], dis_ahead[eLeft])>MIN_SAFE_DIS_AHEAD){
+					my_next_lane = (dis_ahead[eRight]>dis_ahead[eLeft])?eRight:eLeft;
+				}
+			}
+		}
+		else if (my_curr_lane!=eCenter && (dis_ahead[eCenter] > 2*MIN_SAFE_DIS_AHEAD)){ // we prefer to be on the center lane
+			my_next_lane = eCenter;
+		}	
+		lane_change = (my_next_lane!=my_curr_lane);
+		if (lane_change){
+			cnt_change_lane=1;
+			change_lane_trg=my_next_lane;		
+		}
 	}
 	
 	//
 	// finding the target speed at the end of the path.
 	bool follow_car = false;
 	double s_dot_end = MAX_SPEED_MPS;
-	if (speed_change_enable && (dis_ahead[my_next_lane] < MIN_SAFE_DIS) && (vel_ahead[my_next_lane] < MAX_SPEED_MPS)){
+	if ((dis_ahead[my_next_lane] < MIN_SAFE_DIS_AHEAD) && (vel_ahead[my_next_lane] < MAX_SPEED_MPS)){
 		follow_car=true;
 		s_dot_end = vel_ahead[my_next_lane];
 	}
@@ -77,14 +88,13 @@ void poly_path::calc_path_sd(std::vector<double> vehicle_info, std::vector<objec
 	}
 	
 	double ds = s_dot_end*DT;
-	bool lane_change = (my_next_lane!=my_curr_lane);
-	double d_next = get_next_lane_d(my_next_lane, d_start[0], lane_change);
+	double d_next = get_next_lane_d(my_next_lane, d_start[0]);
 	 
 	// log prints (debug)
 	bool log_enable = true;
 	if (log_enable){
-		if (!lane_change) {cout << "STAY";}
-		else {cout << "TURN";}
+		if (!lane_change) {cout << "STAY_" << cnt_change_lane;}
+		else {cout << "TURN_" << cnt_change_lane;}
 		if (follow_car) {cout << " RE";}
 		else {cout << " MY";}
 		
@@ -204,10 +214,10 @@ vector<vector<double>> poly_path::get_dis_val_ahead(double s, vector<object_info
 	for (int i=0; i<objects_info.size(); i++){
 		tmp_object_info = objects_info[i];
 		object_lane = get_lane(tmp_object_info.get_d());
-		if (object_lane==eNan){
-			continue;
-		}
+		if (object_lane==eNan) continue;
+
 		ds = tmp_object_info.get_s() - s;
+		if (ds<=0 && ds>(-MIN_SAFE_DIS_BEHIND)) ds+=MIN_SAFE_DIS_BEHIND;
 		if (ds>0 && ds<dis_ahead[object_lane]){
 			dis_ahead[object_lane] = ds;
 			vel_ahead[object_lane] = tmp_object_info.get_v();
@@ -218,7 +228,7 @@ vector<vector<double>> poly_path::get_dis_val_ahead(double s, vector<object_info
 
 //
 // calculating the final "d" location we want
-double poly_path::get_next_lane_d(eLane target_lane, double d_start, bool lane_change){
+double poly_path::get_next_lane_d(eLane target_lane, double d_start){
 	double d_end=(double)(2+4*target_lane);
 	double dd = (d_end-d_start);
 	
@@ -227,6 +237,17 @@ double poly_path::get_next_lane_d(eLane target_lane, double d_start, bool lane_c
 		dd = MAX(dd, -3.3);	
 	}
 	return d_start+dd;
+}
+
+//
+// in order to check if we "finished" our lane changing
+bool poly_path::get_is_in_lane(eLane target_lane, double d){
+	bool ret=true;
+	double d0 = (double)(2+4*target_lane);
+	double d_limmit = 1.0;
+	if (d>(d0+d_limmit)) ret=false;
+	if (d<(d0-d_limmit)) ret=false;
+	return ret;
 }
 
 //
