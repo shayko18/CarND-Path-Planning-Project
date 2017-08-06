@@ -22,7 +22,7 @@ poly_path::~poly_path(){
 
 //
 // calc the "next" path
-void poly_path::calc_path_sd(std::vector<double> vehicle_info, std::vector<object_info> objects_info, int N){
+void poly_path::calc_path_sd(std::vector<double> vehicle_info, std::vector<object_info> objects_info, int N, int curve_level){
 
 	path_s.clear();
 	path_d.clear();
@@ -88,7 +88,7 @@ void poly_path::calc_path_sd(std::vector<double> vehicle_info, std::vector<objec
 	}
 	
 	double ds = s_dot_end*DT;
-	double d_next = get_next_lane_d(my_next_lane, d_start[0]);
+	double d_next = get_next_lane_d(my_next_lane, d_start[0], curve_level);
 	 
 	// log prints (debug)
 	bool log_enable = true;
@@ -100,6 +100,7 @@ void poly_path::calc_path_sd(std::vector<double> vehicle_info, std::vector<objec
 		
 		cout << ", Ss=" << print_fmt(s_start[0]) << ", Ds=" << print_fmt(d_start[0]);
 		cout << ", De=" << print_fmt(d_next) << ", Ve=" << print_fmt(MS_2_MPH(s_dot_end)) << " ; ";
+		cout << "CL=" << curve_level << " ; ";
 		cout << "{" << print_fmt(dis_ahead[0]) << ", " << print_fmt(MS_2_MPH(vel_ahead[0])) << "}  ";
 		cout << "{" << print_fmt(dis_ahead[1]) << ", " << print_fmt(MS_2_MPH(vel_ahead[1])) << "}  ";
 		cout << "{" << print_fmt(dis_ahead[2]) << ", " << print_fmt(MS_2_MPH(vel_ahead[2])) << "}  ";
@@ -228,13 +229,17 @@ vector<vector<double>> poly_path::get_dis_val_ahead(double s, vector<object_info
 
 //
 // calculating the final "d" location we want
-double poly_path::get_next_lane_d(eLane target_lane, double d_start){
+double poly_path::get_next_lane_d(eLane target_lane, double d_start, int curve_level){
 	double d_end=(double)(2+4*target_lane);
 	double dd = (d_end-d_start);
 	
 	if (target_lane!=eCenter){ // in order not to exit the road borders - smooth the path.
 		dd = MIN(dd, 3.3);
 		dd = MAX(dd, -3.3);	
+		if (dd<0.5 && dd>-0.5){ // correct for big curves - not to step out of bounds 
+			if (target_lane==eLeft && curve_level>9) dd+=0.3;    
+			if (target_lane==eRight && curve_level<-9) dd-=0.3;
+		}
 	}
 	return d_start+dd;
 }

@@ -43,6 +43,17 @@ string hasData(string s) {
   return "";
 }
 
+//
+// getting the curve level
+int get_curve_level(vector<double> x, vector<double> y){
+	int N = x.size();
+	double heading1 = atan2((((double)y[1]-(double)y[0])),(x[1]-x[0]));
+	double heading2 = atan2(((y[N-1]-y[N-2])),(x[N-1]-x[N-2]));
+	int heading_diff = (int)((heading1-heading2)*(180 / pi()));
+	heading_diff = ((heading_diff+180)%360)-180;
+	return heading_diff;
+}
+
 /*
 double distance(double x1, double y1, double x2, double y2)
 {
@@ -64,21 +75,15 @@ int ClosestWaypoint(double x, double y, vector<double> maps_x, vector<double> ma
 			closestLen = dist;
 			closestWaypoint = i;
 		}
-
 	}
-
 	return closestWaypoint;
-
 }
 
 int NextWaypoint(double x, double y, double theta, vector<double> maps_x, vector<double> maps_y)
 {
-
 	int closestWaypoint = ClosestWaypoint(x,y,maps_x,maps_y);
-
 	double map_x = maps_x[closestWaypoint];
 	double map_y = maps_y[closestWaypoint];
-
 	double heading = atan2( (map_y-y),(map_x-x) );
 
 	double angle = abs(theta-heading);
@@ -87,9 +92,7 @@ int NextWaypoint(double x, double y, double theta, vector<double> maps_x, vector
 	{
 		closestWaypoint++;
 	}
-
 	return closestWaypoint;
-
 }
 
 // Transform from Cartesian x,y coordinates to Frenet s,d coordinates
@@ -138,9 +141,7 @@ vector<double> getFrenet(double x, double y, double theta, vector<double> maps_x
 	frenet_s += distance(0,0,proj_x,proj_y);
 
 	return {frenet_s,frenet_d};
-
 }
-
 // Transform from Frenet s,d coordinates to Cartesian x,y
 vector<double> getXY(double s, double d, vector<double> maps_s, vector<double> maps_x, vector<double> maps_y)
 {
@@ -150,7 +151,6 @@ vector<double> getXY(double s, double d, vector<double> maps_s, vector<double> m
 	{
 		prev_wp++;
 	}
-
 	int wp2 = (prev_wp+1)%maps_x.size();
 
 	double heading = atan2((maps_y[wp2]-maps_y[prev_wp]),(maps_x[wp2]-maps_x[prev_wp]));
@@ -166,9 +166,7 @@ vector<double> getXY(double s, double d, vector<double> maps_s, vector<double> m
 	double y = seg_y + d*sin(perp_heading);
 
 	return {x,y};
-
 }
-
 */
 
 
@@ -211,7 +209,7 @@ int main() {
           	double car_yaw = j[1]["yaw"];
           	double car_speed = j[1]["speed"];
 			car_speed = mph2mps(car_speed);
-			
+
 			if (prev_car_s>car_s){
 				car_s+=MAX_S;
 			}
@@ -252,6 +250,7 @@ int main() {
 
 				//
 				// get my car info at current location
+				int curve_level=0;
 				vehicle_info my_vehicle_info = my_vehicle_info_pm[fine_location];
 				if (prev_path_sz==0){
 					my_vehicle_info.set_s(car_s);
@@ -264,11 +263,12 @@ int main() {
 						cout << " ^^^^^ FINISH " << ++loop_cnt << " LOOP ^^^^^" << endl;
 						cout << endl;
 					}
+					curve_level = get_curve_level(previous_path_x, previous_path_y);
 				}
 
 				//
 				// calc the "next" path
-				poly_path_alg.calc_path_sd(my_vehicle_info.get_vec(), objects_info, next_path_sz);
+				poly_path_alg.calc_path_sd(my_vehicle_info.get_vec(), objects_info, next_path_sz, curve_level);
 				
 				//
 				// set the predicted car info for the next update 
